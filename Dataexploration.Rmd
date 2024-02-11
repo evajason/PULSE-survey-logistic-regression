@@ -10,122 +10,142 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(dplyr)
 library(ggplot2)
+library(tidyr)
 ```
 
 ```{r}
-df <- read.csv("../HPS_Week63_PUF_CSV/pulse2023_puf_63.csv") %>%
-  select(TBIRTH_YEAR, RHISPANIC,RRACE,EEDUC,ANXIOUS,WORRY,INTEREST,DOWN,EST_MSA,PRIVHLTH,PUBHLTH,INCOME)
+df_all <- read.csv("../HPS_Week17_PUF_CSV/pulse2020_puf_17.csv") 
 ```
 
 ```{r}
-mental_health <- select(df, TBIRTH_YEAR, RHISPANIC,RRACE,EEDUC, ANXIOUS,WORRY,INTEREST,DOWN) %>%
-  mutate(age = 2023-TBIRTH_YEAR) %>%
+df <- mutate(df_all, age = 2023-TBIRTH_YEAR) %>%
+  mutate(ANXIOUS = ifelse(ANXIOUS < 1, 0, ANXIOUS)) %>%
+  mutate(WORRY = ifelse(WORRY < 1, 0, WORRY)) %>%
+  mutate(INTEREST = ifelse(INTEREST < 1, 0, INTEREST)) %>%
+  mutate(DOWN = ifelse(DOWN < 1, 0, DOWN)) %>%
   mutate(mental_health_score = rowSums(pick(ANXIOUS,WORRY,INTEREST,DOWN))) %>%
-  mutate(issue = ifelse(mental_health_score==4, 0, 1))
+  mutate(issue = ifelse(mental_health_score<=4, 0, 1)) %>%
+  mutate(age_group = case_when(
+    age < 30 ~ "20-29",
+    age < 40 & age >29 ~ "30-39",
+    age < 50 & age >39 ~ "40-49",
+    age < 60 & age > 49 ~ "50-59",
+    age < 70 & age >59 ~ "60-69",
+    age < 80 & age >69 ~ "70-79",
+    age > 79 ~ "80+"
+  ))
+```
 
-ggplot(mental_health, aes(x=age, y = INCOME)) + 
-  geom_histogram()
-df2 <- filter(mental_health, mental_health_score>=4)
+## Summary Statistics
 
-ggplot(df2, aes(x=mental_health_score)) + 
+```{r}
+ggplot(df, aes(age)) +
   geom_bar() +
   theme_minimal()
 
-
-max(mental_health$age)
-min(mental_health$age)
-median(mental_health$age)
-sum(mental_health$age)/length(mental_health$age)
-
-
+avg_age <- mean(df$age)
+median_age <- median(df$age)
 ```
 
-```{r}
-
-df2 <- read.csv("../HPS_Week45_PUF_CSV/pulse2022_puf_45.csv") 
-```
+A total of `r nrow(df)` responded to the Week 17 surrvey. The average age of respondents was `r round(avg_age,2)` and the median age was  `r round(median_age,2)`.
 
 ```{r}
-df3 <- select(df2,TBIRTH_YEAR, RHISPANIC,RRACE,EEDUC,ANXIOUS,WORRY,INTEREST,DOWN,EST_MSA,PRIVHLTH,PUBHLTH,INCOME,PRESCRIPT,MH_SVCS,MH_NOTGET) %>%
-  mutate(age = 2023-TBIRTH_YEAR) %>%
-  mutate(mental_health_score = rowSums(pick(ANXIOUS,WORRY,INTEREST,DOWN))) %>%
-  filter(mental_health_score > 0) %>%
-  #doesn't really account for people who didn't answer the question
-  mutate(issue = ifelse(mental_health_score> 4, 1, 0)) %>%
-  #filter(INCOME > 0) %>%
-  mutate(INCOME = as.character(INCOME))
+df_mental_health <- select(df, ANXIOUS, WORRY, INTEREST, DOWN, age) %>%
+  pivot_longer(cols = c(ANXIOUS,WORRY,INTEREST,DOWN), names_to ="issue", values_to = "score") %>%
+  mutate(age_group = case_when(
+    age < 30 ~ "20-29",
+    age < 40 & age > 29 ~ "30-39",
+    age < 50 & age > 39 ~ "40-49",
+    age < 60 & age > 49 ~ "50-59",
+    age < 70 & age > 59 ~ "60-69",
+    age < 80 & age > 69 ~ "70-79",
+    age > 79 ~ "80+"
+  ))
 
-ggplot(df3, aes(x=mental_health_score)) + 
-  geom_bar(show.legend = FALSE) +
-  theme_minimal()  +
-  xlab("Total Mental Health Score")
+df_groups <- group_by(df_mental_health, issue, age_group, score) %>%
+  summarise(total_issue_age_score = n())
 
-# have to fix for missing data points
-mental_health_df <- select(df3, ANXIOUS,WORRY,INTEREST,DOWN) %>%
-  mutate(ANXIOUS = ifelse(ANXIOUS>1, 1, 0)) %>%
-  mutate(WORRY = ifelse(WORRY>1, 1, 0)) %>%
-  mutate(INTEREST = ifelse(INTEREST>1, 1, 0)) %>%
-  mutate(DOWN = ifelse(DOWN>1, 1, 0))
+df_groups_age_group_total_score <-  group_by(df_mental_health, age_group, issue) %>%
+  summarise(total_issue_age = n())
 
-percent_ANXIOUS <- sum(mental_health_df$ANXIOUS)/nrow(mental_health_df)
-percent_WORRY <- sum(mental_health_df$WORRY)/nrow(mental_health_df)
-percent_INTEREST <- sum(mental_health_df$INTEREST)/nrow(mental_health_df)
-percent_DOWN <- sum(mental_health_df$DOWN)/nrow(mental_health_df)
+df_groups <- merge(df_groups, df_groups_age_group_total_score) %>%
+  mutate(percent = total_issue_age_score/total_issue_age)
 
-ggplot(df3, aes(x=mental_health_score, fill=INCOME)) + 
-  geom_bar(show.legend = FALSE) +
-  theme_minimal()+
-  facet_wrap(~INCOME,  ncol=2) +
-  xlab("Total Mental Health Score")
-
-ggplot(df3, aes(x=mental_health_score)) + 
-  geom_bar(show.legend = FALSE) +
-  theme_minimal() +
-  facet_wrap(~age,  ncol=2) +
-  xlab("Total Mental Health Score")
-
-df.agg_age_score <- aggregate(issue ~ age, data= df3, FUN = sum)
-df.agg_age_score  <- cbind(df.agg_age_score,aggregate(issue ~ age,data= df3, FUN = length)$issue)
-names(df.agg_age_score)[3] <- 'total'
-df.agg_age_score$perc <- df.agg_age_score$issue / df.agg_age_score$total
-
-ggplot(df.agg_age_score, aes(x=age, y= perc)) +
+ggplot(df_groups, aes(x=score, y = percent)) +
   geom_col() +
-  theme_minimal() +
-  ylab("Fraction with Mental Health Issues")
-
-ggplot(df.agg_age_score, aes(x=age, y= perc)) +
-  geom_point() +
-  theme_minimal() +
-  ylab("Fraction with Mental Health Issues") +
-  geom_smooth()
-df.agg <- aggregate(issue ~ INCOME, data= df3, FUN = sum)
-
-df.agg  <- cbind(df.agg,aggregate(issue ~ INCOME,
-                        data= df3, FUN = length)$issue)
-names(df.agg)[3] <- 'total'
-df.agg <- mutate(df.agg,perc = issue / total)
+  facet_grid(issue~age_group) +
+  theme_minimal()
 ```
 
-Of the people with mental health issues, who didn't have access
+"Over the last 7 days, how often have you been bothered by the following problems ... Feeling
+nervous, anxious, or on edge? Would you say not at all, several days, more than
+half the days, or nearly every day? Select only one answer."
+
+"1) Not at all
+2) Several days
+3) More than half the days
+4) Nearly every day 
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+
+
+"Over the last 7 days, how often have you been bothered by the following problems ... Not being
+able to stop or control worrying? Would you say not at all, several days, more
+than half the days, or nearly every day? Select only one answer."
+"1) Not at all
+2) Several days
+3) More than half the days
+4) Nearly every day 
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+
+
+"Over the last 7 days, how often have you been bothered by ... having little interest or
+pleasure in doing things? Would you say not at all, several days, more than
+half the days, or nearly every day? Select only one answer."
+"1) Not at all
+2) Several days
+3) More than half the days
+4) Nearly every day 
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+
+
+"Over the last 7 days, how often have you been bothered by ... feeling down, depressed, or
+hopeless? Would you say not at all, several days, more than half the days, or
+nearly every day? Select only one answer."
+
+1) Not at all
+2) Several days
+3) More than half the days
+4) Nearly every day 
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+
 
 ```{r}
-df4 <- filter(df3, issue ==1) %>% select(age, MH_NOTGET)
+df_groups_y_n_issue <- group_by(df, issue, age_group) %>%
+  summarise(total_issue_age_score = n())
 
-counts <- count(df4, MH_NOTGET, age) %>%
-  filter(MH_NOTGET >0) %>%
-  
+df_groups_age_group <-  group_by(df, age_group) %>%
+  summarise(total_age_group = n())
 
+df_groups <- merge(df_groups_y_n_issue, df_groups_age_group) %>%
+  mutate(percent = total_issue_age_score/total_age_group)%>%
+  mutate(has_issue = ifelse(issue ==1, "YES", "NO"))
 
-countdf.agg <- aggregate(age ~ MH_NOTGET, data= df4, FUN = length)
-
-#df.agg  <- cbind(df.agg,aggregate(issue ~ MH_NOTGET,
-                        #data= df4, FUN = length)$issue)
-#names(df.agg)[3] <- 'total'
-df.agg <- mutate(df.agg,perc = issue / nrow(df4))  
-df.agg$answer <- c("no answer", "yes","no")
-
-
+ggplot(df_groups, aes(x=age_group, y = percent, fill = has_issue)) +
+  geom_col(position="dodge") +
+  theme_minimal()
 ```
 
+```{r}
+agg.age <- aggregate(x = issue ~ age, data= df, FUN = sum)
+agg.age  <- cbind(agg.age, aggregate(x = issue ~ age,data= df, FUN = length))
+names(agg.age)[4] <- 'total'
 
+mod.fit <- glm(formula = issue ~ age, family = binomial(link = logit), data = df)
+mod.fit2 <- glm(formula = issue/total ~ age,family = binomial(link='logit'), data = agg.age, weight = total)
+
+curve(predict(mod.fit2, data.frame(age=x), type="response"),from=min(agg.age$age), to=max(agg.age$age), ylab="Probability", xlab="Age")
+```
