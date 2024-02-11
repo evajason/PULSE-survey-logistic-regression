@@ -23,12 +23,13 @@ mental_health <- select(df, TBIRTH_YEAR, RHISPANIC,RRACE,EEDUC, ANXIOUS,WORRY,IN
   mutate(mental_health_score = rowSums(pick(ANXIOUS,WORRY,INTEREST,DOWN))) %>%
   mutate(issue = ifelse(mental_health_score==4, 0, 1))
 
-ggplot(mental_health, aes(x=age)) + 
+ggplot(mental_health, aes(x=age, y = INCOME)) + 
   geom_histogram()
 df2 <- filter(mental_health, mental_health_score>=4)
 
 ggplot(df2, aes(x=mental_health_score)) + 
-  geom_histogram()
+  geom_bar() +
+  theme_minimal()
 
 
 max(mental_health$age)
@@ -41,8 +42,90 @@ sum(mental_health$age)/length(mental_health$age)
 
 ```{r}
 
-df2 <- read.csv("../HPS_Week45_PUF_CSV/pulse2022_puf_45.csv") %>%
-  select(TBIRTH_YEAR, RHISPANIC,RRACE,EEDUC,ANXIOUS,WORRY,INTEREST,DOWN,EST_MSA,PRIVHLTH,PUBHLTH,INCOME,PRESCRIPT,MH_SVCS,MH_NOTGET)
+df2 <- read.csv("../HPS_Week45_PUF_CSV/pulse2022_puf_45.csv") 
+```
+
+```{r}
+df3 <- select(df2,TBIRTH_YEAR, RHISPANIC,RRACE,EEDUC,ANXIOUS,WORRY,INTEREST,DOWN,EST_MSA,PRIVHLTH,PUBHLTH,INCOME,PRESCRIPT,MH_SVCS,MH_NOTGET) %>%
+  mutate(age = 2023-TBIRTH_YEAR) %>%
+  mutate(mental_health_score = rowSums(pick(ANXIOUS,WORRY,INTEREST,DOWN))) %>%
+  filter(mental_health_score > 0) %>%
+  #doesn't really account for people who didn't answer the question
+  mutate(issue = ifelse(mental_health_score> 4, 1, 0)) %>%
+  #filter(INCOME > 0) %>%
+  mutate(INCOME = as.character(INCOME))
+
+ggplot(df3, aes(x=mental_health_score)) + 
+  geom_bar(show.legend = FALSE) +
+  theme_minimal()  +
+  xlab("Total Mental Health Score")
+
+# have to fix for missing data points
+mental_health_df <- select(df3, ANXIOUS,WORRY,INTEREST,DOWN) %>%
+  mutate(ANXIOUS = ifelse(ANXIOUS>1, 1, 0)) %>%
+  mutate(WORRY = ifelse(WORRY>1, 1, 0)) %>%
+  mutate(INTEREST = ifelse(INTEREST>1, 1, 0)) %>%
+  mutate(DOWN = ifelse(DOWN>1, 1, 0))
+
+percent_ANXIOUS <- sum(mental_health_df$ANXIOUS)/nrow(mental_health_df)
+percent_WORRY <- sum(mental_health_df$WORRY)/nrow(mental_health_df)
+percent_INTEREST <- sum(mental_health_df$INTEREST)/nrow(mental_health_df)
+percent_DOWN <- sum(mental_health_df$DOWN)/nrow(mental_health_df)
+
+ggplot(df3, aes(x=mental_health_score, fill=INCOME)) + 
+  geom_bar(show.legend = FALSE) +
+  theme_minimal()+
+  facet_wrap(~INCOME,  ncol=2) +
+  xlab("Total Mental Health Score")
+
+ggplot(df3, aes(x=mental_health_score)) + 
+  geom_bar(show.legend = FALSE) +
+  theme_minimal() +
+  facet_wrap(~age,  ncol=2) +
+  xlab("Total Mental Health Score")
+
+df.agg_age_score <- aggregate(issue ~ age, data= df3, FUN = sum)
+df.agg_age_score  <- cbind(df.agg_age_score,aggregate(issue ~ age,data= df3, FUN = length)$issue)
+names(df.agg_age_score)[3] <- 'total'
+df.agg_age_score$perc <- df.agg_age_score$issue / df.agg_age_score$total
+
+ggplot(df.agg_age_score, aes(x=age, y= perc)) +
+  geom_col() +
+  theme_minimal() +
+  ylab("Fraction with Mental Health Issues")
+
+ggplot(df.agg_age_score, aes(x=age, y= perc)) +
+  geom_point() +
+  theme_minimal() +
+  ylab("Fraction with Mental Health Issues") +
+  geom_smooth()
+df.agg <- aggregate(issue ~ INCOME, data= df3, FUN = sum)
+
+df.agg  <- cbind(df.agg,aggregate(issue ~ INCOME,
+                        data= df3, FUN = length)$issue)
+names(df.agg)[3] <- 'total'
+df.agg <- mutate(df.agg,perc = issue / total)
+```
+
+Of the people with mental health issues, who didn't have access
+
+```{r}
+df4 <- filter(df3, issue ==1) %>% select(age, MH_NOTGET)
+
+counts <- count(df4, MH_NOTGET, age) %>%
+  filter(MH_NOTGET >0) %>%
+  
+
+
+countdf.agg <- aggregate(age ~ MH_NOTGET, data= df4, FUN = length)
+
+#df.agg  <- cbind(df.agg,aggregate(issue ~ MH_NOTGET,
+                        #data= df4, FUN = length)$issue)
+#names(df.agg)[3] <- 'total'
+df.agg <- mutate(df.agg,perc = issue / nrow(df4))  
+df.agg$answer <- c("no answer", "yes","no")
+
+
 ```
 
 
