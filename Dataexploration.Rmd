@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
+library(kableExtra)
 ```
 
 ```{r}
@@ -140,12 +141,104 @@ ggplot(df_groups, aes(x=age_group, y = percent, fill = has_issue)) +
 ```
 
 ```{r}
+mod.fit <- glm(formula = issue ~ age, family = binomial(link = logit), data = df)
+
 agg.age <- aggregate(x = issue ~ age, data= df, FUN = sum)
 agg.age  <- cbind(agg.age, aggregate(x = issue ~ age,data= df, FUN = length))
 names(agg.age)[4] <- 'total'
 
-mod.fit <- glm(formula = issue ~ age, family = binomial(link = logit), data = df)
 mod.fit2 <- glm(formula = issue/total ~ age,family = binomial(link='logit'), data = agg.age, weight = total)
 
 curve(predict(mod.fit2, data.frame(age=x), type="response"),from=min(agg.age$age), to=max(agg.age$age), ylab="Probability", xlab="Age")
 ```
+```{r}
+df_activity <- select(df,FEWRTRANS,PLNDTRIPS,CNCLDTRPS,TW_START,CHNGHOW1,CHNGHOW2,CHNGHOW3,CHNGHOW4,CHNGHOW5,CHNGHOW6,CHNGHOW7,CHNGHOW8,CHNGHOW9,CHNGHOW10,CHNGHOW11,CHNGHOW12)
+  
+df_change <- select(df, starts_with("CHNGHOW"))
+
+df_change[df_change == -99] <- 0
+df_change[df_change == -88] <- 0
+
+df_total_change <- colSums(df_change)
+
+df_change <- data.frame(category = colnames(df_change), total =colSums(df_change)) %>%
+  mutate(total = as.numeric(total)) %>%
+  mutate(percentage = total/nrow(df_change)) %>%
+  mutate(percent = paste0(round(percentage, 2)*100, "%"))
+
+kable(select(df_change, category, percent), row.names = F)
+```
+
+
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Made more purchases online (as opposed to in store)
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Made more purchases by curbside pick-up (as opposed to in store)
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) More purchases in-store (as opposed to purchases online or curbside pickup)
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Increased use of credit cards or smartphone apps for purchases, instead of using cash 
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Increased use of cash instead of using credit cards or smartphone apps for purchases
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Avoided eating at restaurants
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Resumed eating at restaurants
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Canceled or postponed in-person medical or dental appointments 
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Attended in-person medical or dental appointments
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Canceled or postponed housekeeping or caregiving services
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Resumed or started new housekeeping or caregiving services 
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
+How did spending or shopping change	In the last 7 days, which of the following changes have you or your household made to your spending or shopping? Select all that apply. 
+"1) Did not make any changes to spending or shopping behavior
+-99) Question seen but category not selected
+-88) Missing / Did not report"	
+All persons born before 2002	
+	
