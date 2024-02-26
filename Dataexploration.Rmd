@@ -19,6 +19,8 @@ df_all <- read.csv("../HPS_Week17_PUF_CSV/pulse2020_puf_17.csv")
 ```
 
 ```{r}
+# "issue" corresponds to 0 if yours score is < 4 and 1 if your score is > 4
+
 df <- mutate(df_all, age = 2023-TBIRTH_YEAR) %>%
   mutate(ANXIOUS = ifelse(ANXIOUS < 1, 0, ANXIOUS)) %>%
   mutate(WORRY = ifelse(WORRY < 1, 0, WORRY)) %>%
@@ -28,13 +30,14 @@ df <- mutate(df_all, age = 2023-TBIRTH_YEAR) %>%
   mutate(issue = ifelse(mental_health_score<=4, 0, 1)) %>%
   mutate(age_group = case_when(
     age < 30 ~ "20-29",
-    age < 40 & age >29 ~ "30-39",
-    age < 50 & age >39 ~ "40-49",
+    age < 40 & age > 29 ~ "30-39",
+    age < 50 & age > 39 ~ "40-49",
     age < 60 & age > 49 ~ "50-59",
-    age < 70 & age >59 ~ "60-69",
-    age < 80 & age >69 ~ "70-79",
+    age < 70 & age > 59 ~ "60-69",
+    age < 80 & age > 69 ~ "70-79",
     age > 79 ~ "80+"
-  ))
+  )) %>%
+  mutate(TW_START = as.character(TW_START))
 ```
 
 ## Summary Statistics
@@ -142,7 +145,15 @@ ggplot(df_groups, aes(x=age_group, y = percent, fill = has_issue)) +
 
 ```{r}
 mod.fit <- glm(formula = issue ~ age, family = binomial(link = logit), data = df)
+#curve(predict(mod.fit, data.frame(age=x), type="response"),from=min(df$age), to=max(df$age), ylab="Probability", xlab="Age")
+df$fitted.values <- mod.fit$fitted.values
 
+ggplot(df, aes(x = age, y = fitted.values)) +
+  geom_line() +
+  theme_minimal()
+```
+
+```{r}
 agg.age <- aggregate(x = issue ~ age, data= df, FUN = sum)
 agg.age  <- cbind(agg.age, aggregate(x = issue ~ age,data= df, FUN = length))
 names(agg.age)[4] <- 'total'
@@ -151,8 +162,36 @@ mod.fit2 <- glm(formula = issue/total ~ age,family = binomial(link='logit'), dat
 
 curve(predict(mod.fit2, data.frame(age=x), type="response"),from=min(agg.age$age), to=max(agg.age$age), ylab="Probability", xlab="Age")
 ```
+
+```{r}
+education_level <- select(df,EEDUC) %>% 
+  mutate(EEDUC = as.character(EEDUC)) %>%
+  group_by(EEDUC) %>%
+  summarise(total = n())
+
+tele_work <- select(df,TW_START) %>% 
+  mutate(TW_START = as.character(TW_START)) %>%
+  group_by(TW_START) %>%
+  summarise(total = n()) %>%
+  mutate(percent = paste0(round(total/nrow(df),2)*100,"%"))
+
+kable(tele_work)  #%>%
+  #save_kable("telework.pdf")
+```
+Working from home is sometimes referred to as telework. Did any adults in this household substitute some or all of their typical in-person work for telework because of the coronavirus pandemic, including yourself?  Select only one answer.
+
+Teleworking start due to COVID
+"1) Yes, at least one adult substituted some or all of their typical in-person work for telework
+2) No, no adults substituted their typical in-person work for telework
+3) No, there has been no change in telework
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+
+
 ```{r}
 df_activity <- select(df,FEWRTRANS,PLNDTRIPS,CNCLDTRPS,TW_START,CHNGHOW1,CHNGHOW2,CHNGHOW3,CHNGHOW4,CHNGHOW5,CHNGHOW6,CHNGHOW7,CHNGHOW8,CHNGHOW9,CHNGHOW10,CHNGHOW11,CHNGHOW12)
+
+df_activity <- 
   
 df_change <- select(df, starts_with("CHNGHOW"))
 
@@ -241,4 +280,46 @@ How did spending or shopping change	In the last 7 days, which of the following c
 -99) Question seen but category not selected
 -88) Missing / Did not report"	
 All persons born before 2002	
-	
+
+## Variable Selection
+
+```{r}
+df_mod <- select(df, issue,TW_START, FEWRTRIPS, FEWRTRANS, PLNDTRIPS, CNCLDTRPS, TEACH1, TEACH2, TEACH3, TEACH4, TEACH5) %>%
+  mutate(across(everything(), as.character)) %>%
+  mutate(issue = as.numeric(issue))
+mod.fit <- glm(issue ~ TW_START + FEWRTRIPS + FEWRTRANS + PLNDTRIPS + CNCLDTRPS + TEACH1 + TEACH2 + TEACH3 + TEACH4 + TEACH5, family = binomial, data=df_mod)
+
+
+```
+
+
+## CHNGHOW + WHYCHNGD
+
+```{r}
+# changed_shopping_habits_online = 1 means Made more purchases online (as opposed to in store)
+# changed_shopping_habits_online = 0 means didn't Made more purchases online (as opposed to in store)
+
+# changed_shopping_habits_curbside = 1 Made more purchases by curbside pick-up (as opposed to in store)
+# changed_shopping_habits_curbside = 0 didn't Made more purchases by curbside pick-up (as opposed to in store)
+
+# change_restaurants = 1 Avoided eating at restaurants
+# change_restaurants = 0 didn't Avoided eating at restaurants
+
+# change_appointments = 1 Canceled or postponed in-person medical or dental appointments 
+# change_appointments = 0 didn't Canceled or postponed in-person medical or dental appointments 
+
+# change_caregiving =1 Canceled or postponed housekeeping or caregiving services
+# change_caregiving = 0 didn't Canceled or postponed housekeeping or caregiving services
+
+df <- mutate(df, changed_shopping_habits_online = ifelse(CHNGHOW1 == 1, 1, 0)) %>%
+  mutate(changed_shopping_habits_curbside = ifelse(CHNGHOW2 == 1, 1, 0)) %>%
+  mutate(changed_restaurants = ifelse(CHNGHOW6 == 1, 1, 0)) %>%
+  mutate(changed_appointments = ifelse(CHNGHOW8 == 1, 1, 0)) %>%
+  mutate(changed_caregiving = ifelse(CHNGHOW10 == 1, 1, 0)) %>%
+  mutate(total_changed = rowSums(select(.,starts_with("changed")))) %>%
+  mutate(changed_bin = total_changed >0) %>%
+  mutate(change_due_to_risk = WHYCHNGD3 ==1 ) %>%
+  mutate(behavior_change_due_risk = changed_bin & change_due_to_risk)
+
+#behavior_change_due_risk is true if the person changed their behavior because of high risk
+```
