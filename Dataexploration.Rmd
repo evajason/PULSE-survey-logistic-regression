@@ -281,17 +281,6 @@ How did spending or shopping change	In the last 7 days, which of the following c
 -88) Missing / Did not report"	
 All persons born before 2002	
 
-## Variable Selection
-
-```{r}
-df_mod <- select(df, issue,TW_START, FEWRTRIPS, FEWRTRANS, PLNDTRIPS, CNCLDTRPS, TEACH1, TEACH2, TEACH3, TEACH4, TEACH5) %>%
-  mutate(across(everything(), as.character)) %>%
-  mutate(issue = as.numeric(issue))
-mod.fit <- glm(issue ~ TW_START + FEWRTRIPS + FEWRTRANS + PLNDTRIPS + CNCLDTRPS + TEACH1 + TEACH2 + TEACH3 + TEACH4 + TEACH5, family = binomial, data=df_mod)
-
-
-```
-
 
 ## CHNGHOW + WHYCHNGD
 
@@ -323,3 +312,19 @@ df <- mutate(df, changed_shopping_habits_online = ifelse(CHNGHOW1 == 1, 1, 0)) %
 
 #behavior_change_due_risk is true if the person changed their behavior because of high risk
 ```
+
+## planned trips 
+
+```{r}
+df <- mutate(df, canceled_trip_due_to_covid = CNCLDTRPS==1)
+```
+
+## Variable Selection
+
+```{r}
+df_mod <- select(df, issue,TW_START, FEWRTRIPS, FEWRTRANS, PLNDTRIPS, CNCLDTRPS, TEACH1, TEACH2, TEACH3, TEACH4, TEACH5, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
+  mutate(across(everything(), as.character)) %>%
+  mutate(issue = as.numeric(issue))
+mod.fit <- glm(issue ~ TW_START + FEWRTRIPS + FEWRTRANS + PLNDTRIPS + CNCLDTRPS + TEACH1 + TEACH2 + TEACH3 + TEACH4 + TEACH5 + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_mod)
+```
+
