@@ -316,15 +316,21 @@ df <- mutate(df, changed_shopping_habits_online = ifelse(CHNGHOW1 == 1, 1, 0)) %
 ## planned trips 
 
 ```{r}
+# canceled_trip_due_to_covid TRUE means "Were any of these trips canceled because of the coronavirus pandemic? Include trips you had not made travel reservations or arrangements for in your answer. Select only one answer."
+# FALSE means they didn't cancel due to covid or didn't have a trip planned
+
 df <- mutate(df, canceled_trip_due_to_covid = CNCLDTRPS==1)
+```
+
+## remote learning for children
+
+```{r}
+# if there were children at home, did they stop going in person
+df <- mutate(df, children_learn_from_home = ifelse(TEACH1 ==1  | TEACH2 ==1 | TEACH3 == 1, T, F))
 ```
 
 ## Variable Selection
 
 ```{r}
-df_mod <- select(df, issue,TW_START, FEWRTRIPS, FEWRTRANS, PLNDTRIPS, CNCLDTRPS, TEACH1, TEACH2, TEACH3, TEACH4, TEACH5, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
-  mutate(across(everything(), as.character)) %>%
-  mutate(issue = as.numeric(issue))
-mod.fit <- glm(issue ~ TW_START + FEWRTRIPS + FEWRTRANS + PLNDTRIPS + CNCLDTRPS + TEACH1 + TEACH2 + TEACH3 + TEACH4 + TEACH5 + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_mod)
+mod.fit <- glm(issue ~ TW_START + FEWRTRIPS + FEWRTRANS + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df)
 ```
-
