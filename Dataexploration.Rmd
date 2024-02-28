@@ -12,6 +12,7 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(kableExtra)
+library(lmtest)
 ```
 
 ```{r}
@@ -325,7 +326,7 @@ df <- mutate(df, canceled_trip_due_to_covid = CNCLDTRPS==1)
 
 ```{r}
 # if there were children at home, did they stop going in person
-df <- mutate(df, children_learn_from_home = ifelse(TEACH1 == 1 | TEACH2 == 1 | TEACH3 == 1, T, F)) %>%
+df <- mutate(df, children_learn_from_home = ifelse(TEACH1 == 1 | TEACH2 == 1 | TEACH3 == 1, T, F))
 ```
 
 ```{r}
@@ -361,9 +362,11 @@ df2 <- group_by(df_mod, race) %>%
 
 ggplot(df2, aes(x = activity, y = percent_total, fill = race)) + 
   geom_bar(position="dodge", stat="identity") +
-  theme_minimal()
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, hjust=.2)) +
+  ylim(c(0,1))
 
-df_mod <- select(df, age_group, issue, telework,fewer_trips,fewer_trips_transit,children_learn_from_home,behavior_change_due_risk,canceled_trip_due_to_covid)
+df_mod <- select(df, age_group, telework,fewer_trips,fewer_trips_transit,children_learn_from_home,behavior_change_due_risk,canceled_trip_due_to_covid)
 df3 <- group_by(df_mod, age_group) %>% 
   summarise(across(everything(), sum), total_each_age_group = n()) %>%
   pivot_longer(-c(age_group,total_each_age_group), names_to = "activity", values_to = "total_people") %>%
@@ -371,13 +374,29 @@ df3 <- group_by(df_mod, age_group) %>%
 
 ggplot(df3, aes(x = activity, y = percent_total, fill = age_group)) + 
   geom_bar(position="dodge", stat="identity") +
-  theme_minimal()
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, hjust=.2)) +
+  ylim(c(0,1))
 ```
 
 ## Variable Selection
 
 ```{r}
-mod.fit <- glm(issue ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df)
+mod.fit <- glm(issue ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid + age, family = binomial, data=df)
 
-mod.fit_poisson <- glm(mental_health_score ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = poisson, data=df)
+mod.fit_age <- glm(issue ~ (telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid)*age_group, family = binomial, data=df)
+
+mod.fit_age2 <- glm(issue ~ telework:age_group + fewer_trips:age_group + fewer_trips_transit:age_group + children_learn_from_home:age_group + behavior_change_due_risk:age_group + canceled_trip_due_to_covid:age_group, family = binomial, data=df)
+
+lrtest(mod.fit_age, mod.fit_age2)
+
+#mod.fit_race <- glm(issue ~ (telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid)*race, family = binomial, data=df)
+```
+
+```{r, eval=F}
+mod.fit_poisson <- glm(mental_health_score ~ (telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid)*age_group, family = poisson, data=df)
+
+ggplot(df, aes(x=mental_health_score)) +
+  geom_bar() +
+  theme_minimal()
 ```
