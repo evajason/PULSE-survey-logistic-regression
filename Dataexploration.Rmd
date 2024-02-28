@@ -345,7 +345,33 @@ df <- mutate(df, fewer_trips = FEWRTRIPS == 1)
 
 ```{r}
 #if they took fewer trips on transit, then it is TRUE
-df <- mutate(df, fewer_trips_transit = FEWRTRANS == 1)
+df <- mutate(df, fewer_trips_transit = FEWRTRANS == 1) %>%
+  mutate(race = as.character(RRACE))
+
+df_mod <- select(df, race, issue, telework,fewer_trips,fewer_trips_transit,children_learn_from_home,behavior_change_due_risk,canceled_trip_due_to_covid)
+```
+
+# Plots about variables of interest
+
+```{r}
+df2 <- group_by(df_mod, race) %>% 
+  summarise(across(everything(), sum), total_each_race = n()) %>%
+  pivot_longer(-c(race,total_each_race), names_to = "activity", values_to = "total_people") %>%
+  mutate(percent_total = (total_people/total_each_race))
+
+ggplot(df2, aes(x = activity, y = percent_total, fill = race)) + 
+  geom_bar(position="dodge", stat="identity") +
+  theme_minimal()
+
+df_mod <- select(df, age_group, issue, telework,fewer_trips,fewer_trips_transit,children_learn_from_home,behavior_change_due_risk,canceled_trip_due_to_covid)
+df3 <- group_by(df_mod, age_group) %>% 
+  summarise(across(everything(), sum), total_each_age_group = n()) %>%
+  pivot_longer(-c(age_group,total_each_age_group), names_to = "activity", values_to = "total_people") %>%
+  mutate(percent_total = (total_people/total_each_age_group))
+
+ggplot(df3, aes(x = activity, y = percent_total, fill = age_group)) + 
+  geom_bar(position="dodge", stat="identity") +
+  theme_minimal()
 ```
 
 ## Variable Selection
@@ -354,5 +380,4 @@ df <- mutate(df, fewer_trips_transit = FEWRTRANS == 1)
 mod.fit <- glm(issue ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df)
 
 mod.fit_poisson <- glm(mental_health_score ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = poisson, data=df)
-
 ```
