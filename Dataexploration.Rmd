@@ -378,6 +378,10 @@ ggplot(df3, aes(x = activity, y = percent_total, fill = age_group)) +
   theme(axis.text.x = element_text(angle = 90, hjust=.2)) +
   ylim(c(0,1))
 ```
+stratified analysis for age groups or maybe look at younger people. 
+
+maybe the fitted values are not the most important part of the store, look at the estimated the effects
+
 
 ## Variable Selection
 
@@ -386,9 +390,7 @@ mod.fit <- glm(issue ~ telework + fewer_trips + fewer_trips_transit + children_l
 
 mod.fit_age <- glm(issue ~ (telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid)*age_group, family = binomial, data=df)
 
-mod.fit_age2 <- glm(issue ~ telework:age_group + fewer_trips:age_group + fewer_trips_transit:age_group + children_learn_from_home:age_group + behavior_change_due_risk:age_group + canceled_trip_due_to_covid:age_group, family = binomial, data=df)
-
-lrtest(mod.fit_age, mod.fit_age2)
+lrtest(mod.fit, mod.fit_age)
 
 #mod.fit_race <- glm(issue ~ (telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid)*race, family = binomial, data=df)
 ```
