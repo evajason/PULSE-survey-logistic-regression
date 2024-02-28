@@ -318,7 +318,6 @@ df <- mutate(df, changed_shopping_habits_online = ifelse(CHNGHOW1 == 1, 1, 0)) %
 ```{r}
 # canceled_trip_due_to_covid TRUE means "Were any of these trips canceled because of the coronavirus pandemic? Include trips you had not made travel reservations or arrangements for in your answer. Select only one answer."
 # FALSE means they didn't cancel due to covid or didn't have a trip planned
-
 df <- mutate(df, canceled_trip_due_to_covid = CNCLDTRPS==1)
 ```
 
@@ -326,10 +325,8 @@ df <- mutate(df, canceled_trip_due_to_covid = CNCLDTRPS==1)
 
 ```{r}
 # if there were children at home, did they stop going in person
-df <- mutate(df, children_learn_from_home = ifelse(TEACH1 ==1  | TEACH2 ==1 | TEACH3 == 1, T, F)) %>%
+df <- mutate(df, children_learn_from_home = ifelse(TEACH1 == 1 | TEACH2 == 1 | TEACH3 == 1, T, F)) %>%
 ```
-
-
 
 ```{r}
 #if they started telework, then it is TRUE
@@ -343,16 +340,19 @@ df <- mutate(df, telework = TW_START== 1)
 
 ```{r}
 #if they took fewer trips to stores, then it is TRUE
-df <- mutate(df, fewer_trips = FEWRTRIPS== 1)
+df <- mutate(df, fewer_trips = FEWRTRIPS == 1)
 ```
 
 ```{r}
 #if they took fewer trips on transit, then it is TRUE
-df <- mutate(df, fewer_trips_transit = FEWRTRANS== 1)
+df <- mutate(df, fewer_trips_transit = FEWRTRANS == 1)
 ```
 
 ## Variable Selection
 
 ```{r}
 mod.fit <- glm(issue ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df)
+
+mod.fit_poisson <- glm(mental_health_score ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = poisson, data=df)
+
 ```
