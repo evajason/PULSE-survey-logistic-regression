@@ -390,8 +390,34 @@ mod.fit <- glm(issue ~ telework + fewer_trips + fewer_trips_transit + children_l
 
 mod.fit_age <- glm(issue ~ (telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid)*age_group, family = binomial, data=df)
 
+#mod.fit_age_no_age <- glm(issue ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df)
 lrtest(mod.fit, mod.fit_age)
+```
 
+```{r}
+df_summary <- summary(mod.fit_age)$coefficients %>% 
+  data.frame() 
+df_summary$variables <- rownames(df_summary)
+df_summary <- separate(df_summary, variables, into = c('variable', 'age_group'), sep = ":", remove = FALSE) %>%
+  #mutate(age_group = replace_na(age_group, "age_group"))
+  mutate(age_group = coalesce(age_group, variable)) %>%
+  mutate(significance = ifelse(Pr...z.. < 0.01, "significant", "not significant"))
+
+age_groups <- df_summary$age_group %>% unique()
+age_groups <- age_groups[8:length(age_groups)]
+
+df_summary <- mutate(df_summary, variable = ifelse(variable %in% age_groups, "age_group", variable))
+
+#df_summary <- df_summary[df_summary[9:14,6] = "age_group"]
+df_summary <- df_summary[8:nrow(df_summary),]
+
+ggplot(df_summary, aes(x= age_group, y = Estimate, group=variable)) +
+  geom_line(aes(color = variable)) +
+  geom_point(aes(shape = significance)) +
+  scale_size_manual(values=c(10,1)) +
+  scale_shape_manual(values=c(16, 8)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 #mod.fit_race <- glm(issue ~ (telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid)*race, family = binomial, data=df)
 ```
 
