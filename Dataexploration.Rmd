@@ -13,6 +13,7 @@ library(ggplot2)
 library(tidyr)
 library(kableExtra)
 library(lmtest)
+library(car)
 
 source("hoslemv2.R")
 ```
@@ -485,6 +486,8 @@ plot(mod.fit_young_cont_agg_no_age_no_tele)
 mod.fit_young_cont_agg_no_age_no_tele$aic
 ```
 
+BEST MODEL:
+
 ```{r}
 df_young_agg_all_var_no_age_no_tele_no_behave <- group_by(df_young, issue, fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid) %>%
   summarize(n = n())
@@ -493,5 +496,27 @@ mod.fit_young_cont_agg_no_age_no_tele_no_behave <- glm(issue/n ~ fewer_trips + f
 
 pchisq(mod.fit_young_cont_agg_no_age_no_tele_no_behave$deviance, mod.fit_young_cont_agg_no_age_no_tele_no_behave$df.residual, lower.tail = F)
 plot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
+
+influencePlot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
+
+summary(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
 ```
 
+remove outlier
+
+```{r}
+mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele_no_behave[2:nrow(df_young_agg_all_var_no_age_no_tele_no_behave),], weights = n)
+
+pchisq(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier$deviance, mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier$df.residual, lower.tail = F)
+plot(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier)
+
+influencePlot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
+
+summary(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier)
+```
+
+
+Diagnostics:
+
+- residual plots
+- leverage
