@@ -41,7 +41,8 @@ df <- mutate(df_all, age = 2023-TBIRTH_YEAR) %>%
     age < 80 & age > 69 ~ "70-79",
     age > 79 ~ "80+"
   )) %>%
-  mutate(TW_START = as.character(TW_START))
+  mutate(TW_START = as.character(TW_START)) %>%
+  mutate(school_children = ifelse(ENROLL1 ==1 | ENROLL2==1, T, F))
 ```
 
 ## Summary Statistics
@@ -421,6 +422,8 @@ ggplot(df_summary, aes(x= age_group, y = Estimate, group=variable)) +
   scale_shape_manual(values=c(16, 8)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+df_summary[,1:4] %>% signif(3) %>% kable
 ```
 Use cutoff of 60 because of the children variable. We want to assess family unit 
 
@@ -451,6 +454,23 @@ hoslem(df_young$issue, mod.fit_young$fitted.values)
 
 pchisq(mod.fit_young_cont$deviance, mod.fit_young_cont$df.residual, lower.tail = F)
 plot(mod.fit_no_age)
+```
+
+```{r}
+#ENROLL1
+#df_school_age <- filter(df, ENROLL1 ==1 | ENROLL2  == 1)
+
+ggplot(df_school_age, aes(x = age)) +
+  geom_histogram()
+
+df_school_age_agg <- group_by(df, issue, telework, fewer_trips, age, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid, school_children) %>%
+  summarize(n = n())
+
+mod.fit_school_age_agg <- glm(issue/n ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_school_age_agg, weights = n)
+
+pchisq(mod.fit_school_age_agg$deviance, mod.fit_school_age_agg$df.residual, lower.tail = F)
+
+plot(mod.fit_school_age_agg)
 ```
 
 ```{r}
@@ -493,13 +513,24 @@ df_young_agg_all_var_no_age_no_tele_no_behave <- group_by(df_young, issue, fewer
   summarize(n = n())
 
 mod.fit_young_cont_agg_no_age_no_tele_no_behave <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele_no_behave, weights = n)
+mod.final <- mod.fit_young_cont_agg_no_age_no_tele_no_behave
 
 pchisq(mod.fit_young_cont_agg_no_age_no_tele_no_behave$deviance, mod.fit_young_cont_agg_no_age_no_tele_no_behave$df.residual, lower.tail = F)
 plot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
 
 influencePlot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
-
 summary(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
+
+print(mod.fit_young_cont_agg_no_age_no_tele_no_behave$aic) %>% round(2)
+
+ggplot(df_young_agg_all_var_no_age_no_tele_no_behave, aes(x = fewer_trips, y = n)) +
+  geom_bar(position="dodge", stat="identity")
+```
+
+
+```{r}
+mod.fit_school_age <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele_no_behave, weights = n)
+
 ```
 
 remove outlier
@@ -511,7 +542,6 @@ pchisq(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier$deviance, mod.
 plot(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier)
 
 influencePlot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
-
 summary(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier)
 ```
 
