@@ -425,7 +425,7 @@ ggplot(df_summary, aes(x= age_group, y = Estimate, group=variable)) +
 
 df_summary[,1:4] %>% signif(3) %>% kable
 ```
-Use cutoff of 60 because of the children variable. We want to assess family unit 
+Use cutoff of 60 because these people were more likely to change their behavior
 
 ```{r}
 df_young <- filter(df, age < 60)
