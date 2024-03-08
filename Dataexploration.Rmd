@@ -322,7 +322,6 @@ df <- mutate(df, fewer_trips_transit = FEWRTRANS == 1) %>%
 df_mod <- select(df, race, issue, telework,fewer_trips,fewer_trips_transit,children_learn_from_home,behavior_change_due_risk,canceled_trip_due_to_covid)
 ```
 
-# Plots about variables of interest
 
 ```{r}
 df2 <- group_by(df_mod, race) %>% 
@@ -366,7 +365,8 @@ lrtest(mod.fit, mod.fit_age)
 
 ```{r}
 df_summary <- summary(mod.fit_age)$coefficients %>% 
-  data.frame() 
+  data.frame()
+
 df_summary$variables <- rownames(df_summary)
 df_summary <- separate(df_summary, variables, into = c('variable', 'age_group'), sep = ":", remove = FALSE) %>%
   #mutate(age_group = replace_na(age_group, "age_group"))
@@ -394,12 +394,7 @@ df_summary[,1:4] %>% signif(3) %>% kable
 Use cutoff of 60 because these people were more likely to change their behavior
 
 ```{r}
-
-```
-
-```{r}
 df_young <- filter(df, age < 60)
-
 
 mod.fit_young_interaction <- glm(issue ~ (telework + fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid)*age_group, family = binomial, data=df_young)
 mod.fit_young_interaction$aic
@@ -426,23 +421,11 @@ pchisq(mod.fit_young_cont$deviance, mod.fit_young_cont$df.residual, lower.tail =
 plot(mod.fit_no_age)
 ```
 
-```{r, eval=F}
-ggplot(df_school_age, aes(x = age)) +
-  geom_histogram()
-
-df_school_age_agg <- group_by(df, issue, telework, fewer_trips, age, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid, school_children) %>%
-  summarize(n = n())
-
-mod.fit_school_age_agg <- glm(issue/n ~ telework + fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_school_age_agg, weights = n)
-
-pchisq(mod.fit_school_age_agg$deviance, mod.fit_school_age_agg$df.residual, lower.tail = F)
-
-plot(mod.fit_school_age_agg)
-```
 
 ```{r}
-df_young_agg_all_var <- group_by(df_young, issue, telework, fewer_trips, age, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
-  summarize(n = n())
+df_agg_all_var <- group_bydf_young, telework, fewer_trips, age, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
+  summarize(n = n(), total_w_issue = sum(issue)) %>%
+  mutate(RR = total_w_issue/n)
 
 mod.fit_young_cont_agg <- glm(issue/n ~ telework + fewer_trips + age+ fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var, weights = n)
 
@@ -453,7 +436,8 @@ mod.fit_young_cont_agg$aic
 
 ```{r}
 df_young_agg_all_var_no_age <- group_by(df_young, issue, telework, fewer_trips, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
-  summarize(n = n())
+  summarize(n = n(), total_w_issue = sum(issue)) %>%
+  mutate(RR = total_w_issue/n)
 
 mod.fit_young_cont_agg_no_age <- glm(issue/n ~ fewer_trips + fewer_trips_transit + telework + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age, weights = n)
 
@@ -463,10 +447,11 @@ mod.fit_young_cont_agg_no_age$aic
 ```
 
 ```{r}
-df_young_agg_all_var_no_age_no_tele <- group_by(df_young, issue, fewer_trips, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
-  summarize(n = n())
+df_young_agg_all_var_no_age_no_tele <- group_by(df_young, issue, fewer_trips, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid)  %>%
+  summarize(n = n(), total_w_issue = sum(issue)) %>%
+  mutate(RR = total_w_issue/n)
 
-mod.fit_young_cont_agg_no_age_no_tele <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele, weights = n)
+mod.fit_young_cont_agg_no_age_no_tele <- glm(RR ~ fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele, weights = n)
 
 pchisq(mod.fit_young_cont_agg_no_age_no_tele$deviance, mod.fit_young_cont_agg_no_age_no_tele$df.residual, lower.tail = F)
 plot(mod.fit_young_cont_agg_no_age_no_tele)
@@ -490,25 +475,7 @@ summary(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
 
 print(mod.fit_young_cont_agg_no_age_no_tele_no_behave$aic) %>% round(2)
 
-ggplot(df_young_agg_all_var_no_age_no_tele_no_behave, aes(x = fewer_trips, y = n)) +
-  geom_bar(position="dodge", stat="identity")
-```
-
-
-```{r, eval=F}
-mod.fit_school_age <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele_no_behave, weights = n)
-```
-
-remove outlier
-
-```{r, eval=F}
-mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele_no_behave[2:nrow(df_young_agg_all_var_no_age_no_tele_no_behave),], weights = n)
-
-pchisq(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier$deviance, mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier$df.residual, lower.tail = F)
-plot(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier)
-
-influencePlot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
-summary(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier)
+df_agg$fitted <- mod.fit$fitted.values
 ```
 
 ```{r}
@@ -543,7 +510,5 @@ df_upset_0[,cols] <- lapply(df_upset_0[,cols], as.numeric)
 upset(df_upset_0, nset=ncol(df_upset_0), order.by="freq")
 
 df_agg_best$fitted_val <- mod.final$fitted.values
-
-
 ```
 
