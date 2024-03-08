@@ -14,6 +14,7 @@ library(tidyr)
 library(kableExtra)
 library(lmtest)
 library(car)
+library(UpSetR)
 
 source("hoslemv2.R")
 ```
@@ -24,7 +25,6 @@ df_all <- read.csv("../HPS_Week17_PUF_CSV/pulse2020_puf_17.csv")
 
 ```{r}
 # "issue" corresponds to 0 if yours score is < 4 and 1 if your score is > 4
-
 df <- mutate(df_all, age = 2023-TBIRTH_YEAR) %>%
   mutate(ANXIOUS = ifelse(ANXIOUS < 1, 0, ANXIOUS)) %>%
   mutate(WORRY = ifelse(WORRY < 1, 0, WORRY)) %>%
@@ -90,35 +90,13 @@ ggplot(df_groups, aes(x=score, y = percent)) +
 nervous, anxious, or on edge? Would you say not at all, several days, more than
 half the days, or nearly every day? Select only one answer."
 
-"1) Not at all
-2) Several days
-3) More than half the days
-4) Nearly every day 
--99) Question seen but category not selected
--88) Missing / Did not report"
-
-
 "Over the last 7 days, how often have you been bothered by the following problems ... Not being
 able to stop or control worrying? Would you say not at all, several days, more
 than half the days, or nearly every day? Select only one answer."
-"1) Not at all
-2) Several days
-3) More than half the days
-4) Nearly every day 
--99) Question seen but category not selected
--88) Missing / Did not report"
-
 
 "Over the last 7 days, how often have you been bothered by ... having little interest or
 pleasure in doing things? Would you say not at all, several days, more than
 half the days, or nearly every day? Select only one answer."
-"1) Not at all
-2) Several days
-3) More than half the days
-4) Nearly every day 
--99) Question seen but category not selected
--88) Missing / Did not report"
-
 
 "Over the last 7 days, how often have you been bothered by ... feeling down, depressed, or
 hopeless? Would you say not at all, several days, more than half the days, or
@@ -150,22 +128,12 @@ ggplot(df_groups, aes(x=age_group, y = percent, fill = has_issue)) +
 
 ```{r}
 mod.fit <- glm(formula = issue ~ age, family = binomial(link = logit), data = df)
-#curve(predict(mod.fit, data.frame(age=x), type="response"),from=min(df$age), to=max(df$age), ylab="Probability", xlab="Age")
+
 df$fitted.values <- mod.fit$fitted.values
 
 ggplot(df, aes(x = age, y = fitted.values)) +
   geom_line() +
   theme_minimal()
-```
-
-```{r}
-agg.age <- aggregate(x = issue ~ age, data= df, FUN = sum)
-agg.age  <- cbind(agg.age, aggregate(x = issue ~ age,data= df, FUN = length))
-names(agg.age)[4] <- 'total'
-
-mod.fit2 <- glm(formula = issue/total ~ age,family = binomial(link='logit'), data = agg.age, weight = total)
-
-curve(predict(mod.fit2, data.frame(age=x), type="response"),from=min(agg.age$age), to=max(agg.age$age), ylab="Probability", xlab="Age")
 ```
 
 ```{r}
@@ -195,8 +163,6 @@ Teleworking start due to COVID
 
 ```{r}
 df_activity <- select(df,FEWRTRANS,PLNDTRIPS,CNCLDTRPS,TW_START,CHNGHOW1,CHNGHOW2,CHNGHOW3,CHNGHOW4,CHNGHOW5,CHNGHOW6,CHNGHOW7,CHNGHOW8,CHNGHOW9,CHNGHOW10,CHNGHOW11,CHNGHOW12)
-
-df_activity <- 
   
 df_change <- select(df, starts_with("CHNGHOW"))
 
@@ -428,6 +394,10 @@ df_summary[,1:4] %>% signif(3) %>% kable
 Use cutoff of 60 because these people were more likely to change their behavior
 
 ```{r}
+
+```
+
+```{r}
 df_young <- filter(df, age < 60)
 
 
@@ -456,10 +426,7 @@ pchisq(mod.fit_young_cont$deviance, mod.fit_young_cont$df.residual, lower.tail =
 plot(mod.fit_no_age)
 ```
 
-```{r}
-#ENROLL1
-#df_school_age <- filter(df, ENROLL1 ==1 | ENROLL2  == 1)
-
+```{r, eval=F}
 ggplot(df_school_age, aes(x = age)) +
   geom_histogram()
 
@@ -509,11 +476,11 @@ mod.fit_young_cont_agg_no_age_no_tele$aic
 BEST MODEL:
 
 ```{r}
-df_young_agg_all_var_no_age_no_tele_no_behave <- group_by(df_young, issue, fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid) %>%
-  summarize(n = n())
+df_agg <- group_by(df_young, fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid) %>%
+  summarize(n = n(), total_w_issue = sum(issue)) %>%
+  mutate(RR = total_w_issue/n)
 
-mod.fit_young_cont_agg_no_age_no_tele_no_behave <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele_no_behave, weights = n)
-mod.final <- mod.fit_young_cont_agg_no_age_no_tele_no_behave
+mod.fit <- glm(RR ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_agg, weights = n)
 
 pchisq(mod.fit_young_cont_agg_no_age_no_tele_no_behave$deviance, mod.fit_young_cont_agg_no_age_no_tele_no_behave$df.residual, lower.tail = F)
 plot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
@@ -528,14 +495,13 @@ ggplot(df_young_agg_all_var_no_age_no_tele_no_behave, aes(x = fewer_trips, y = n
 ```
 
 
-```{r}
+```{r, eval=F}
 mod.fit_school_age <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele_no_behave, weights = n)
-
 ```
 
 remove outlier
 
-```{r}
+```{r, eval=F}
 mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier <- glm(issue/n ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele_no_behave[2:nrow(df_young_agg_all_var_no_age_no_tele_no_behave),], weights = n)
 
 pchisq(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier$deviance, mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier$df.residual, lower.tail = F)
@@ -545,8 +511,39 @@ influencePlot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
 summary(mod.fit_young_cont_agg_no_age_no_tele_no_behave_rv_outlier)
 ```
 
+```{r}
+expit <- function(x){
+  exp(x) /  ( 1 + exp(x))
+}
+```
 
-Diagnostics:
+```{r}
+df_coef_final <- cbind(summary(mod.final)$coefficients[,1:2] %>% round(2), `p-value` = formatC(summary(mod.final)$coefficients[,4], format = "e", digits = 2))
 
-- residual plots
-- leverage
+rownames(df_coef_final) <- c("Intercept", "Fewer Trips to Store", "Fewer Trips on Transit", "Remote Learning", "Canceled Vacation")
+kable(df_coef_final)
+
+df_upset_1 <- filter(df_young, issue ==1) %>%
+  select(fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid)
+cols <- sapply(df_upset_1, is.logical)
+df_upset_1[,cols] <- lapply(df_upset_1[,cols], as.numeric)
+  #t() %>% 
+  #data.frame()
+#issue, fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid
+upset(df_upset_1, nset=ncol(df_upset_1), order.by="freq")
+
+
+df_upset_0 <- filter(df_young, issue ==0) %>%
+  select(fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid)
+cols <- sapply(df_upset_0, is.logical)
+df_upset_0[,cols] <- lapply(df_upset_0[,cols], as.numeric)
+  #t() %>% 
+  #data.frame()
+#issue, fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid
+upset(df_upset_0, nset=ncol(df_upset_0), order.by="freq")
+
+df_agg_best$fitted_val <- mod.final$fitted.values
+
+
+```
+
