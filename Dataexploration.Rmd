@@ -15,6 +15,7 @@ library(kableExtra)
 library(lmtest)
 library(car)
 library(UpSetR)
+library(RColorBrewer)
 
 source("hoslemv2.R")
 ```
@@ -422,7 +423,7 @@ plot(mod.fit_no_age)
 ```
 
 
-```{r}
+```{r, eval=F}
 df_agg_all_var <- group_bydf_young, telework, fewer_trips, age, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
   summarize(n = n(), total_w_issue = sum(issue)) %>%
   mutate(RR = total_w_issue/n)
@@ -434,7 +435,7 @@ plot(mod.fit_young_cont_agg)
 mod.fit_young_cont_agg$aic
 ```
 
-```{r}
+```{r, eval=F}
 df_young_agg_all_var_no_age <- group_by(df_young, issue, telework, fewer_trips, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
   summarize(n = n(), total_w_issue = sum(issue)) %>%
   mutate(RR = total_w_issue/n)
@@ -446,7 +447,7 @@ plot(mod.fit_young_cont_agg_no_age)
 mod.fit_young_cont_agg_no_age$aic
 ```
 
-```{r}
+```{r, eval=F}
 df_young_agg_all_var_no_age_no_tele <- group_by(df_young, issue, fewer_trips, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid)  %>%
   summarize(n = n(), total_w_issue = sum(issue)) %>%
   mutate(RR = total_w_issue/n)
@@ -467,13 +468,13 @@ df_agg <- group_by(df_young, fewer_trips, fewer_trips_transit, children_learn_fr
 
 mod.fit <- glm(RR ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_agg, weights = n)
 
-pchisq(mod.fit_young_cont_agg_no_age_no_tele_no_behave$deviance, mod.fit_young_cont_agg_no_age_no_tele_no_behave$df.residual, lower.tail = F)
-plot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
+pchisq(mod.fit$deviance, mod.fit$df.residual, lower.tail = F)
+plot(mod.fit)
 
-influencePlot(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
-summary(mod.fit_young_cont_agg_no_age_no_tele_no_behave)
+influencePlot(mod.fit)
+summary(mod.fit)
 
-print(mod.fit_young_cont_agg_no_age_no_tele_no_behave$aic) %>% round(2)
+print(mod.fit$aic) %>% round(2)
 
 df_agg$fitted <- mod.fit$fitted.values
 ```
@@ -485,30 +486,51 @@ expit <- function(x){
 ```
 
 ```{r}
-df_coef_final <- cbind(summary(mod.final)$coefficients[,1:2] %>% round(2), `p-value` = formatC(summary(mod.final)$coefficients[,4], format = "e", digits = 2))
+df_coef_final <- cbind(summary(mod.fit)$coefficients[,1:2] %>% round(2), `p-value` = formatC(summary(mod.fit)$coefficients[,4], format = "e", digits = 2))
 
 rownames(df_coef_final) <- c("Intercept", "Fewer Trips to Store", "Fewer Trips on Transit", "Remote Learning", "Canceled Vacation")
-kable(df_coef_final)
+#k1 <- kable(df_coef_final)
+
+#k1 <- df_coef_final %>%
+k1 <- kable(df_coef_final, "latex", booktabs = T) %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  as_image()
+k1
+#save_kable(k1, "coef_final.png")
 
 df_upset_1 <- filter(df_young, issue ==1) %>%
   select(fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid)
+
+colnames(df_upset_1) <- c("Fewer Trips to Store", "Fewer Trips on Transit", "Remote Learning", "Canceled Vacation")
 cols <- sapply(df_upset_1, is.logical)
 df_upset_1[,cols] <- lapply(df_upset_1[,cols], as.numeric)
-  #t() %>% 
-  #data.frame()
-#issue, fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid
+
+png(file="upset.png") # or other device
 upset(df_upset_1, nset=ncol(df_upset_1), order.by="freq")
+dev.off()
+# df_upset_0 <- filter(df_young, issue == 0) %>%
+#   select(fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid)
+# cols <- sapply(df_upset_0, is.logical)
+# df_upset_0[,cols] <- lapply(df_upset_0[,cols], as.numeric)
+# upset(df_upset_0, nset=ncol(df_upset_0), order.by="freq")
 
+df_agg$fitted_val <- mod.fit$fitted.values
+```
 
-df_upset_0 <- filter(df_young, issue ==0) %>%
-  select(fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid)
-cols <- sapply(df_upset_0, is.logical)
-df_upset_0[,cols] <- lapply(df_upset_0[,cols], as.numeric)
-  #t() %>% 
-  #data.frame()
-#issue, fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid
-upset(df_upset_0, nset=ncol(df_upset_0), order.by="freq")
-
-df_agg_best$fitted_val <- mod.final$fitted.values
+```{r}
+df_agg <- arrange(df_agg, desc(fitted_val))# %>%
+  
+df_agg$Rank <- seq(1,nrow(df_agg),1)
+df_agg$total <- df_agg$fewer_trips + df_agg$fewer_trips_transit + df_agg$children_learn_from_home + df_agg$canceled_trip_due_to_covid
+ggplot(df_agg, aes(x = factor(Rank), y = fitted_val,color = factor(total))) +
+  #geom_col(aes(fill = factor(total))) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  xlab("Rank") +
+  ggtitle("Probability of a Mental Health Issue") +
+  ylab("Probability") +
+  ylim(c(0,1)) +
+  labs(color = "Activities Changed")
+ggsave("rank_fit_values.png")
 ```
 
