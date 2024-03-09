@@ -80,17 +80,25 @@ ggplot(df_groups, aes(x=score, y = percent)) +
   theme_minimal()
 ```
 
+ANXIOUS:
+
 "Over the last 7 days, how often have you been bothered by the following problems ... Feeling
 nervous, anxious, or on edge? Would you say not at all, several days, more than
 half the days, or nearly every day? Select only one answer."
+
+WORRY:
 
 "Over the last 7 days, how often have you been bothered by the following problems ... Not being
 able to stop or control worrying? Would you say not at all, several days, more
 than half the days, or nearly every day? Select only one answer."
 
+INTEREST:
+
 "Over the last 7 days, how often have you been bothered by ... having little interest or
 pleasure in doing things? Would you say not at all, several days, more than
 half the days, or nearly every day? Select only one answer."
+
+DOWN:
 
 "Over the last 7 days, how often have you been bothered by ... feeling down, depressed, or
 hopeless? Would you say not at all, several days, more than half the days, or
@@ -103,6 +111,7 @@ nearly every day? Select only one answer."
 -99) Question seen but category not selected
 -88) Missing / Did not report"
 
+Missing data was considered as if they did not experience the issue.
 
 ```{r}
 df_groups_y_n_issue <- group_by(df, issue, age_group) %>%
@@ -117,7 +126,10 @@ df_groups <- merge(df_groups_y_n_issue, df_groups_age_group) %>%
 
 ggplot(df_groups, aes(x=age_group, y = percent, fill = has_issue)) +
   geom_col(position="dodge") +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.title = "Has Mental Health Issue") +
+  ylab("Percent with Issue") +
+  xlab("Age Group")
 ```
 
 ```{r}
@@ -478,13 +490,17 @@ expit <- function(x){
 }
 ```
 
+When a person reported in the survey that they stopped going to the store due to covid, there was a 215% increase in the probability of depression compared to those who continued going to the store. 
+
 ```{r}
-df_coef_final <- cbind(summary(mod.fit)$coefficients[,1:2] %>% round(2), `p-value` = formatC(summary(mod.fit)$coefficients[,4], format = "e", digits = 2))
+estimate <- summary(mod.fit)$coefficients[,1] %>% round(2)
+prob_change <- round(exp(summary(mod.fit)$coefficients[,1])-1 %>% as.numeric(),2)
+std_err <- summary(mod.fit)$coefficients[,2] %>% round(2)
+p_val <- formatC(summary(mod.fit)$coefficients[,4], format = "e", digits = 2)
 
+df_coef_final <- cbind(estimate, prob_change, std_err, p_val)
 rownames(df_coef_final) <- c("Intercept", "Fewer Trips to Store", "Fewer Trips on Transit", "Remote Learning", "Canceled Vacation")
-#k1 <- kable(df_coef_final)
-
-#k1 <- df_coef_final %>%
+colnames(df_coef_final) <- c("Estimate", "Probability Change", "Std. Error", "p-value")
 k1 <- kable(df_coef_final, "latex", booktabs = T) %>%
   kable_styling(latex_options = c("scale_down")) %>%
   as_image()
