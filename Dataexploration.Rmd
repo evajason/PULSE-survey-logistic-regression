@@ -431,7 +431,7 @@ plot(mod.fit_no_age)
 ```{r, eval=F}
 df_agg_all_var <- group_bydf_young, telework, fewer_trips, age, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
   summarize(n = n(), total_w_issue = sum(issue)) %>%
-  mutate(RR = total_w_issue/n)
+  mutate(proportion = total_w_issue/n)
 
 mod.fit_young_cont_agg <- glm(issue/n ~ telework + fewer_trips + age+ fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var, weights = n)
 
@@ -443,7 +443,7 @@ mod.fit_young_cont_agg$aic
 ```{r, eval=F}
 df_young_agg_all_var_no_age <- group_by(df_young, issue, telework, fewer_trips, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid) %>%
   summarize(n = n(), total_w_issue = sum(issue)) %>%
-  mutate(RR = total_w_issue/n)
+  mutate(proportion = total_w_issue/n)
 
 mod.fit_young_cont_agg_no_age <- glm(issue/n ~ fewer_trips + fewer_trips_transit + telework + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age, weights = n)
 
@@ -455,9 +455,9 @@ mod.fit_young_cont_agg_no_age$aic
 ```{r, eval=F}
 df_young_agg_all_var_no_age_no_tele <- group_by(df_young, issue, fewer_trips, fewer_trips_transit, children_learn_from_home, behavior_change_due_risk, canceled_trip_due_to_covid)  %>%
   summarize(n = n(), total_w_issue = sum(issue)) %>%
-  mutate(RR = total_w_issue/n)
+  mutate(proportion = total_w_issue/n)
 
-mod.fit_young_cont_agg_no_age_no_tele <- glm(RR ~ fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele, weights = n)
+mod.fit_young_cont_agg_no_age_no_tele <- glm(proportion ~ fewer_trips + fewer_trips_transit + children_learn_from_home + behavior_change_due_risk + canceled_trip_due_to_covid, family = binomial, data=df_young_agg_all_var_no_age_no_tele, weights = n)
 
 pchisq(mod.fit_young_cont_agg_no_age_no_tele$deviance, mod.fit_young_cont_agg_no_age_no_tele$df.residual, lower.tail = F)
 plot(mod.fit_young_cont_agg_no_age_no_tele)
@@ -469,12 +469,13 @@ BEST MODEL:
 ```{r}
 df_agg <- group_by(df_young, fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid) %>%
   summarize(n = n(), total_w_issue = sum(issue)) %>%
-  mutate(RR = total_w_issue/n)
+  mutate(proportion = total_w_issue/n)
 
-mod.fit <- glm(RR ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_agg, weights = n)
+mod.fit <- glm(proportion ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_agg, weights = n)
+
+pchisq(mod.fit$null.deviance, mod.fit$df.null, lower.tail = F)
 
 pchisq(mod.fit$deviance, mod.fit$df.residual, lower.tail = F)
-plot(mod.fit)
 
 influencePlot(mod.fit)
 summary(mod.fit)
@@ -501,11 +502,8 @@ p_val <- formatC(summary(mod.fit)$coefficients[,4], format = "e", digits = 2)
 df_coef_final <- cbind(estimate, prob_change, std_err, p_val)
 rownames(df_coef_final) <- c("Intercept", "Fewer Trips to Store", "Fewer Trips on Transit", "Remote Learning", "Canceled Vacation")
 colnames(df_coef_final) <- c("Estimate", "Probability Change", "Std. Error", "p-value")
-k1 <- kable(df_coef_final, "latex", booktabs = T) %>%
-  kable_styling(latex_options = c("scale_down")) %>%
-  as_image()
-k1
-#save_kable(k1, "coef_final.png")
+kable(df_coef_final, "latex", booktabs = T) %>%
+  kable_styling(latex_options = c("scale_down"))
 
 df_upset_1 <- filter(df_young, issue ==1) %>%
   select(fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid)
@@ -514,26 +512,18 @@ colnames(df_upset_1) <- c("Fewer Trips to Store", "Fewer Trips on Transit", "Rem
 cols <- sapply(df_upset_1, is.logical)
 df_upset_1[,cols] <- lapply(df_upset_1[,cols], as.numeric)
 
-png(file="upset.png", width = 1000, height = 1000) # or other device
 upset(df_upset_1, nset=ncol(df_upset_1), order.by="freq")
-dev.off()
-# df_upset_0 <- filter(df_young, issue == 0) %>%
-#   select(fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid)
-# cols <- sapply(df_upset_0, is.logical)
-# df_upset_0[,cols] <- lapply(df_upset_0[,cols], as.numeric)
-# upset(df_upset_0, nset=ncol(df_upset_0), order.by="freq")
-
-df_agg$fitted_val <- mod.fit$fitted.values
-
 ```
 
 ```{r}
-df_agg <- arrange(df_agg, desc(fitted_val))# %>%
+df_agg_plt <- arrange(df_agg, desc(fitted))
   
-df_agg$Rank <- seq(1,nrow(df_agg),1)
-df_agg$total <- df_agg$fewer_trips + df_agg$fewer_trips_transit + df_agg$children_learn_from_home + df_agg$canceled_trip_due_to_covid
-ggplot(df_agg, aes(x = factor(Rank), y = fitted_val,color = factor(total))) +
+df_agg_plt$Rank <- seq(1,nrow(df_agg_plt),1)
+df_agg_plt$total <- df_agg_plt$fewer_trips + df_agg_plt$fewer_trips_transit + df_agg_plt$children_learn_from_home + df_agg_plt$canceled_trip_due_to_covid
+
+ggplot(df_agg_plt, aes(x = factor(Rank), y = fitted,color = factor(total))) +
   #geom_col(aes(fill = factor(total))) +
+  geom_point(aes(x = factor(Rank), y = proportion), color ="black", size=3) +
   geom_point(size = 3) +
   theme_minimal() +
   xlab("Rank") +
@@ -544,8 +534,8 @@ ggplot(df_agg, aes(x = factor(Rank), y = fitted_val,color = factor(total))) +
   theme(legend.position="bottom")
   
 ggsave("rank_fit_values.png")
-df_agg_table <- select(df_agg,fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid, fitted_val)
-df_agg_table$fitted_val <- round(df_agg_table$fitted_val, 3)
+df_agg_table <- select(df_agg_plt,fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid, fitted)
+df_agg_table$fitted_val <- round(df_agg_table$fitted, 3)
 
 colnames(df_agg_table) <-  c("Fewer Trips to Store", "Fewer Trips on Transit", "Remote Learning", "Canceled Vacation", "Probability of a Mental Health Issue")
 df_agg_table$`Probability of a Mental Health Issue` <- round(df_agg_table$`Probability of a Mental Health Issue`, 2)
