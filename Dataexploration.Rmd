@@ -57,20 +57,13 @@ avg_age <- mean(df$age)
 median_age <- median(df$age)
 ```
 
-A total of `r nrow(df)` responded to the Week 17 surrvey. The average age of respondents was `r round(avg_age,2)` and the median age was  `r round(median_age,2)`.
+A total of `r nrow(df)` responded to the Week 17 survey.
+
+The average age of respondents was `r round(avg_age,2)` and the median age was  `r round(median_age,2)`.
 
 ```{r}
-df_mental_health <- select(df, ANXIOUS, WORRY, INTEREST, DOWN, age) %>%
-  pivot_longer(cols = c(ANXIOUS,WORRY,INTEREST,DOWN), names_to ="issue", values_to = "score") %>%
-  mutate(age_group = case_when(
-    age < 30 ~ "20-29",
-    age < 40 & age > 29 ~ "30-39",
-    age < 50 & age > 39 ~ "40-49",
-    age < 60 & age > 49 ~ "50-59",
-    age < 70 & age > 59 ~ "60-69",
-    age < 80 & age > 69 ~ "70-79",
-    age > 79 ~ "80+"
-  ))
+df_mental_health <- select(df, ANXIOUS, WORRY, INTEREST, DOWN, age_group) %>%
+  pivot_longer(cols = c(ANXIOUS,WORRY,INTEREST,DOWN), names_to ="issue", values_to = "score")
 
 df_groups <- group_by(df_mental_health, issue, age_group, score) %>%
   summarise(total_issue_age_score = n())
@@ -505,7 +498,7 @@ colnames(df_upset_1) <- c("Fewer Trips to Store", "Fewer Trips on Transit", "Rem
 cols <- sapply(df_upset_1, is.logical)
 df_upset_1[,cols] <- lapply(df_upset_1[,cols], as.numeric)
 
-png(file="upset.png") # or other device
+png(file="upset.png", width = 1000, height = 1000) # or other device
 upset(df_upset_1, nset=ncol(df_upset_1), order.by="freq")
 dev.off()
 # df_upset_0 <- filter(df_young, issue == 0) %>%
@@ -515,6 +508,7 @@ dev.off()
 # upset(df_upset_0, nset=ncol(df_upset_0), order.by="freq")
 
 df_agg$fitted_val <- mod.fit$fitted.values
+
 ```
 
 ```{r}
@@ -530,7 +524,18 @@ ggplot(df_agg, aes(x = factor(Rank), y = fitted_val,color = factor(total))) +
   ggtitle("Probability of a Mental Health Issue") +
   ylab("Probability") +
   ylim(c(0,1)) +
-  labs(color = "Activities Changed")
+  labs(color = "Number of Activities Changed")  +
+  theme(legend.position="bottom")
+  
 ggsave("rank_fit_values.png")
+df_agg_table <- select(df_agg,fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid, fitted_val)
+df_agg_table$fitted_val <- round(df_agg_table$fitted_val, 3)
+
+colnames(df_agg_table) <-  c("Fewer Trips to Store", "Fewer Trips on Transit", "Remote Learning", "Canceled Vacation", "Probability of a Mental Health Issue")
+df_agg_table$`Probability of a Mental Health Issue` <- round(df_agg_table$`Probability of a Mental Health Issue`, 2)
+df_agg_table_k <- kable(df_agg_table, "latex", booktabs = T) %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  as_image()
+df_agg_table_k
 ```
 
