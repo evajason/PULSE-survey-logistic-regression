@@ -127,7 +127,7 @@ df_groups <- merge(df_groups_y_n_issue, df_groups_age_group) %>%
 ggplot(df_groups, aes(x=age_group, y = percent, fill = has_issue)) +
   geom_col(position="dodge") +
   theme_minimal() +
-  theme(legend.title = "Has Mental Health Issue") +
+  scale_fill_discrete(name = "Has Mental Health Issue") +
   ylab("Percent with Issue") +
   xlab("Age Group")
 ```
@@ -471,7 +471,13 @@ df_agg <- group_by(df_young, fewer_trips, fewer_trips_transit, children_learn_fr
   summarize(n = n(), total_w_issue = sum(issue)) %>%
   mutate(proportion = total_w_issue/n)
 
+write.table(df_agg,"aggregated_data.csv", sep=",", row.names=F)
+
+df_agg <- read.csv("aggregated_data.csv")
+
 mod.fit <- glm(proportion ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_agg, weights = n)
+
+#mod.fit_full <- glm(issue ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young)
 
 pchisq(mod.fit$null.deviance, mod.fit$df.null, lower.tail = F)
 
@@ -483,7 +489,25 @@ summary(mod.fit)
 print(mod.fit$aic) %>% round(2)
 
 df_agg$fitted <- mod.fit$fitted.values
+
+plot(mod.fit) 
+influencePlot(mod.fit)
+
+generalhoslem::logitgof(df_young$issue, mod.fit_full$fitted.values)
+
+df_agg2 <- df_agg[2:nrow(df_agg),]
+
+mod.fit2 <- glm(proportion ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_agg2, weights = n)
+
+pchisq(mod.fit2$deviance, mod.fit2$df.residual, lower.tail = F)
+
+#mod <- logistf(issue ~ fewer_trips + fewer_trips_transit + children_learn_from_home + canceled_trip_due_to_covid, family = binomial, data=df_young)
 ```
+
+
+Explain coefs:
+
+
 
 ```{r}
 expit <- function(x){
@@ -491,11 +515,19 @@ expit <- function(x){
 }
 ```
 
+```{r}
+mod.fit$coefficients
+
+prop_coefs <- expit(coef(mod.fit)["(Intercept)"] + mod.fit$coefficients) %>% data.frame() 
+
+odds_coefs <- exp(mod.fit$coefficients) %>% data.frame() 
+```
+
 When a person reported in the survey that they stopped going to the store due to covid, there was a 215% increase in the probability of depression compared to those who continued going to the store. 
 
 ```{r}
 estimate <- summary(mod.fit)$coefficients[,1] %>% round(2)
-prob_change <- round(exp(summary(mod.fit)$coefficients[,1])-1 %>% as.numeric(),2)
+prob_change <- round(expit(summary(mod.fit)$coefficients[,1]) %>% as.numeric(),2)
 std_err <- summary(mod.fit)$coefficients[,2] %>% round(2)
 p_val <- formatC(summary(mod.fit)$coefficients[,4], format = "e", digits = 2)
 
@@ -520,7 +552,7 @@ df_agg_plt <- arrange(df_agg, desc(fitted))
   
 df_agg_plt$Rank <- seq(1,nrow(df_agg_plt),1)
 df_agg_plt$total <- df_agg_plt$fewer_trips + df_agg_plt$fewer_trips_transit + df_agg_plt$children_learn_from_home + df_agg_plt$canceled_trip_due_to_covid
-
+#df_agg_plt$prob <- exp(df_agg_plt$fitted)
 ggplot(df_agg_plt, aes(x = factor(Rank), y = fitted,color = factor(total))) +
   #geom_col(aes(fill = factor(total))) +
   geom_point(aes(x = factor(Rank), y = proportion), color ="black", size=3) +
@@ -531,7 +563,20 @@ ggplot(df_agg_plt, aes(x = factor(Rank), y = fitted,color = factor(total))) +
   ylab("Probability") +
   ylim(c(0,1)) +
   labs(color = "Number of Activities Changed")  +
-  theme(legend.position="bottom")
+  theme(legend.position="right")
+
+ggplot(df_agg_plt, aes(x = factor(Rank), y = fitted, fill = factor(total))) +
+  #geom_col(aes(fill = factor(total))) +
+  #geom_point(aes(x = factor(Rank), y = proportion), color ="black", size=3) +
+  geom_col() +
+  theme_minimal() +
+  scale_x_discrete(labels = NULL) + labs(x = NULL, y=NULL) +
+  #xlab("Rank") +
+  ggtitle("Probability of a Mental Health Issue") +
+  #ylab("Probability") +
+  ylim(c(0,1)) +
+  labs(color = "Number of Activities Changed")  +
+  theme(legend.position="none")
   
 ggsave("rank_fit_values.png")
 df_agg_table <- select(df_agg_plt,fewer_trips, fewer_trips_transit, children_learn_from_home, canceled_trip_due_to_covid, fitted)
